@@ -282,6 +282,27 @@
   .icon-opt:hover { border-color: var(--accent); }
   .icon-opt.selected { border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
   .icon-opt svg { width: 100%; height: 100%; }
+  .icon-opt.custom { color: var(--amber); font-size: 18px; }
+
+  /* Draw-your-own LED grid (micro:bit style) */
+  .led-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .led-grid {
+    display: grid; grid-template-columns: repeat(5, 36px); gap: 6px;
+    padding: 12px; background: #111; border-radius: 12px; border: 2px solid var(--border);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .led {
+    width: 36px; height: 36px; border-radius: 7px; cursor: pointer;
+    background: #3a1a16; transition: background .08s, box-shadow .08s;
+  }
+  .led.on { background: #ff3b30; box-shadow: 0 0 10px #ff3b30aa; }
+  .led-actions { display: flex; flex-direction: column; gap: 6px; }
+  .btn-led {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 7px 12px;
+    border-radius: 8px; border: 1px solid var(--border); background: var(--surface-raised);
+    color: var(--text); cursor: pointer;
+  }
+  .btn-led:hover { border-color: var(--accent); }
 
   .color-row { display: flex; gap: 10px; flex-wrap: wrap; }
   .color-opt {
@@ -411,6 +432,9 @@
     .slot { border-radius: 12px; }
     .cbtn { font-size: 10.5px; border-radius: 12px; padding: 5px; gap: 3px; }
     .cbtn .cbtn-icon { width: 52%; }
+    .led-grid { grid-template-columns: repeat(5, 32px); gap: 5px; padding: 10px; }
+    .led { width: 32px; height: 32px; }
+    .led-actions { flex-direction: row; }
   }
 </style>
 </head>
@@ -557,6 +581,19 @@
       <div class="field">
         <label>Icon (optional)</label>
         <div class="icon-grid" id="iconGrid"></div>
+      </div>
+
+      <div class="field">
+        <label>Draw your own icon</label>
+        <div class="led-row">
+          <div class="led-grid" id="ledGrid"></div>
+          <div class="led-actions">
+            <button type="button" class="btn-led" onclick="ledAll(true)">All on</button>
+            <button type="button" class="btn-led" onclick="ledInvert()">Invert</button>
+            <button type="button" class="btn-led" onclick="ledAll(false)">Clear</button>
+          </div>
+        </div>
+        <div class="field-hint">Tap the lights to turn them on or off, or drag to paint, just like the micro:bit's <b>show leds</b> block. Picking an icon above copies it here so you can change it.</div>
       </div>
 
       <div class="field">
@@ -950,7 +987,13 @@ const COLS = 4;
 let buttons = [];
 let editMode = false;
 let editingId = null;
-let form = { label: '', text: '', icon: '', color: 'teal', textTouched: false };
+let form = { label: '', text: '', icon: '', pattern: '', color: 'teal', textTouched: false };
+
+const BLANK = '0'.repeat(25);
+function hasLeds(p) { return !!p && p.indexOf('1') !== -1; }
+// A button's picture: its own drawing if it has one, otherwise the preset icon
+function patternOf(b) { return b.pattern || (b.icon && ICONS[b.icon] ? ICONS[b.icon].p : ''); }
+function presetFor(p) { return Object.keys(ICONS).find(k => ICONS[k].p === p) || ''; }
 
 function iconSVG(pattern) {
   let rects = '';
@@ -1006,7 +1049,8 @@ function buildButtonEl(b, forPreview) {
   el.style.background = col.bg;
   el.style.color = col.fg;
   let inner = '';
-  if (b.icon && ICONS[b.icon]) inner += `<div class="cbtn-icon">${iconSVG(ICONS[b.icon].p)}</div>`;
+  const pat = patternOf(b);
+  if (hasLeds(pat)) inner += `<div class="cbtn-icon">${iconSVG(pat)}</div>`;
   if (b.label) inner += `<div class="cbtn-label">${escapeHtml(b.label)}</div>`;
   if (!inner) inner = '<div class="cbtn-label">?</div>';
   el.innerHTML = inner;
@@ -1309,7 +1353,7 @@ function buildEditorPickers() {
   none.dataset.icon = '';
   none.title = 'No icon';
   none.textContent = 'None';
-  none.onclick = () => { form.icon = ''; refreshEditor(); };
+  none.onclick = () => { form.icon = ''; form.pattern = ''; refreshEditor(); };
   ig.appendChild(none);
   Object.entries(ICONS).forEach(([key, ic]) => {
     const o = document.createElement('div');
@@ -1319,6 +1363,7 @@ function buildEditorPickers() {
     o.innerHTML = iconSVG(ic.p);
     o.onclick = () => {
       form.icon = key;
+      form.pattern = ic.p;
       // If no text yet, use the icon name as a starting label
       if (!form.label.trim()) {
         form.label = ic.name;
@@ -1331,6 +1376,30 @@ function buildEditorPickers() {
       refreshEditor();
     };
     ig.appendChild(o);
+  });
+
+  // LED drawing grid
+  const lg = document.getElementById('ledGrid');
+  lg.innerHTML = '';
+  for (let i = 0; i < 25; i++) {
+    const led = document.createElement('div');
+    led.className = 'led';
+    led.dataset.i = i;
+    lg.appendChild(led);
+  }
+  lg.addEventListener('pointerdown', (e) => {
+    const c = e.target.closest('.led');
+    if (!c) return;
+    e.preventDefault();
+    const i = +c.dataset.i;
+    ledPaint = (form.pattern || BLANK)[i] !== '1';   // paint on, or erase, based on the first light
+    setLed(i, ledPaint);
+  });
+  lg.addEventListener('pointermove', (e) => {
+    if (ledPaint === null) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const c = el && el.closest('#ledGrid .led');
+    if (c) setLed(+c.dataset.i, ledPaint);
   });
 
   const cr = document.getElementById('colorRow');
@@ -1346,12 +1415,35 @@ function buildEditorPickers() {
   });
 }
 
+let ledPaint = null;
+document.addEventListener('pointerup', () => { ledPaint = null; });
+document.addEventListener('pointercancel', () => { ledPaint = null; });
+
+function setPattern(p) {
+  form.pattern = hasLeds(p) ? p : '';
+  form.icon = form.pattern ? (presetFor(form.pattern) || 'custom') : '';
+  refreshEditor();
+}
+
+function setLed(i, on) {
+  const arr = (form.pattern || BLANK).split('');
+  if ((arr[i] === '1') === on) return;
+  arr[i] = on ? '1' : '0';
+  setPattern(arr.join(''));
+}
+
+function ledAll(on) { setPattern(on ? '1'.repeat(25) : ''); }
+
+function ledInvert() {
+  setPattern((form.pattern || BLANK).split('').map(c => c === '1' ? '0' : '1').join(''));
+}
+
 function openEditor(id) {
   editingId = id || null;
   const b = id ? buttons.find(x => x.id === id) : null;
   form = b
-    ? { label: b.label || '', text: b.text || '', icon: b.icon || '', color: b.color || 'teal', textTouched: (b.text || '') !== (b.label || '') }
-    : { label: '', text: '', icon: '', color: COLORS[buttons.length % COLORS.length].id, textTouched: false };
+    ? { label: b.label || '', text: b.text || '', icon: b.icon || '', pattern: patternOf(b), color: b.color || 'teal', textTouched: (b.text || '') !== (b.label || '') }
+    : { label: '', text: '', icon: '', pattern: '', color: COLORS[buttons.length % COLORS.length].id, textTouched: false };
 
   document.getElementById('editorTitle').textContent = b ? 'Edit Button' : 'Add Button';
   document.getElementById('saveBtn').textContent = b ? 'Save' : 'Create';
@@ -1388,10 +1480,12 @@ function onSendInput() {
 function refreshEditor() {
   document.querySelectorAll('#iconGrid .icon-opt').forEach(o => o.classList.toggle('selected', o.dataset.icon === form.icon));
   document.querySelectorAll('#colorRow .color-opt').forEach(o => o.classList.toggle('selected', o.dataset.color === form.color));
+  const pat = form.pattern || BLANK;
+  document.querySelectorAll('#ledGrid .led').forEach(l => l.classList.toggle('on', pat[+l.dataset.i] === '1'));
   document.getElementById('sendHintText').textContent = form.text.trim() || 'happy';
   const prev = document.getElementById('editorPreview');
   prev.innerHTML = '';
-  prev.appendChild(buildButtonEl({ label: form.label.trim(), icon: form.icon, color: form.color }, true));
+  prev.appendChild(buildButtonEl({ label: form.label.trim(), icon: form.icon, pattern: form.pattern, color: form.color }, true));
 }
 
 function saveEditor() {
@@ -1399,8 +1493,10 @@ function saveEditor() {
   const text = (form.text || '').trim() || label;
   const err = document.getElementById('formError');
 
-  if (!label && !form.icon) {
-    err.textContent = 'Add some button text or pick an icon.';
+  const pattern = hasLeds(form.pattern) ? form.pattern : '';
+  const icon = pattern ? (presetFor(pattern) || 'custom') : '';
+  if (!label && !pattern) {
+    err.textContent = 'Add some button text, pick an icon or draw one.';
     err.classList.add('show');
     return;
   }
@@ -1412,9 +1508,9 @@ function saveEditor() {
 
   if (editingId) {
     const b = buttons.find(x => x.id === editingId);
-    if (b) Object.assign(b, { label, text, icon: form.icon, color: form.color });
+    if (b) Object.assign(b, { label, text, icon, pattern, color: form.color });
   } else {
-    buttons.push({ id: newId(), label, text, icon: form.icon, color: form.color, slot: firstFreeSlot() });
+    buttons.push({ id: newId(), label, text, icon, pattern, color: form.color, slot: firstFreeSlot() });
   }
   saveButtons();
   closeEditor();
