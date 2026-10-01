@@ -237,6 +237,56 @@
   }
 
   /* ─── Editor Modal ─── */
+  /* ─── Live Data ─── */
+  .live-panel { margin-top: 20px; }
+  .live-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px; padding: 18px;
+  }
+  .tile {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 14px 10px; cursor: pointer; transition: border-color .2s, opacity .3s;
+    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+  }
+  .tile:hover { border-color: var(--accent); }
+  .tile.fresh { border-color: #008fa0aa; }
+  .tile.stale { opacity: 0.45; }
+  .tile-name {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tile-value {
+    font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text);
+    line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tile-value.text { font-size: 20px; }
+  .tile-spark { height: 40px; margin-top: 6px; }
+  .tile-spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .tile-meta {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
+    display: flex; justify-content: space-between; gap: 6px; margin-top: 4px;
+  }
+  .live-empty { padding: 22px 20px 20px; color: var(--text-dim); font-size: 13px; line-height: 1.6; text-align: center; }
+  .live-empty code {
+    background: var(--surface-raised); padding: 2px 6px; border-radius: 4px;
+    font-family: var(--font-mono); color: var(--text); font-size: 12px;
+  }
+
+  /* Detail chart */
+  .detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .dstat { background: var(--surface-raised); border-radius: 10px; padding: 8px 10px; }
+  .dstat-l { font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+  .dstat-v { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; }
+  .detail-chart { position: relative; height: 240px; touch-action: none; }
+  .detail-chart svg { width: 100%; height: 100%; display: block; }
+  .chart-tip {
+    position: absolute; pointer-events: none; background: #061f22; border: 1px solid var(--border);
+    border-radius: 8px; padding: 5px 9px; font-family: var(--font-mono); font-size: 12px; color: var(--text);
+    white-space: nowrap; transform: translate(-50%, -120%); display: none; box-shadow: 0 6px 16px rgba(0,0,0,.4);
+  }
+  .chart-tip span { color: var(--text-dim); font-size: 10px; margin-left: 6px; }
+  .modal.wide { max-width: 640px; }
+
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(3,15,17,0.75); z-index: 100;
     display: none; align-items: center; justify-content: center; padding: 16px;
@@ -435,6 +485,9 @@
     .led-grid { grid-template-columns: repeat(5, 32px); gap: 5px; padding: 10px; }
     .led { width: 32px; height: 32px; }
     .led-actions { flex-direction: row; }
+    .live-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+    .tile-value { font-size: 22px; }
+    .detail-stats { grid-template-columns: 1fr 1fr; }
   }
 </style>
 </head>
@@ -487,6 +540,26 @@
       <div class="trash-zone" id="trashZone" style="display:none;">🗑 Drag a button here to delete it</div>
     </div>
     <div class="grid-hint" id="gridHint"></div>
+  </div>
+
+  <!-- Live Data Panel -->
+  <div class="panel live-panel">
+    <div class="panel-header">
+      <div class="panel-title">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Live Data
+      </div>
+      <div class="header-actions">
+        <span class="panel-badge" id="liveCount">0 values</span>
+        <button class="btn-head" id="liveClear" onclick="clearLive()" style="display:none;">Clear</button>
+      </div>
+    </div>
+    <div class="live-grid" id="liveGrid" style="display:none;"></div>
+    <div class="live-empty" id="liveEmpty">
+      Nothing received yet. In MakeCode, use<br>
+      <code>bluetooth uart write value "temp" = temperature</code><br>
+      and each value gets its own tile here, with a live graph.
+    </div>
   </div>
 
   <!-- Toggle buttons row -->
@@ -554,6 +627,21 @@
 
   <div class="footer">
     Built by <strong style="color:var(--accent);">ElectroBotics</strong> &middot; Works in Chrome &amp; Edge
+  </div>
+</div>
+
+<!-- Live value detail -->
+<div class="modal-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="modal wide">
+    <div class="modal-head">
+      <span id="detailTitle">Value</span>
+      <button class="modal-close" onclick="closeDetail()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-stats" id="detailStats"></div>
+      <div class="detail-chart" id="detailChart"><div class="chart-tip" id="chartTip"></div></div>
+      <div class="field-hint" id="detailHint">Shows up to the last 2 minutes. Hover or drag across the graph to read values.</div>
+    </div>
   </div>
 </div>
 
@@ -753,12 +841,12 @@ function onRxData(event) {
   const lines = rxBuffer.split('\n');
   for (let i = 0; i < lines.length - 1; i++) {
     const line = lines[i].replace(/\r$/, '');
-    if (line.length > 0) logMessage('rx', line);
+    if (line.length > 0) { logMessage('rx', line); handleLiveLine(line); }
   }
   rxBuffer = lines[lines.length - 1];
   clearTimeout(onRxData._flushTimer);
   onRxData._flushTimer = setTimeout(() => {
-    if (rxBuffer.length > 0) { logMessage('rx', rxBuffer); rxBuffer = ''; }
+    if (rxBuffer.length > 0) { logMessage('rx', rxBuffer); handleLiveLine(rxBuffer); rxBuffer = ''; }
   }, 200);
 }
 
@@ -810,6 +898,7 @@ function appendLine(dirClass, dirLabel, text) {
     `<span class="console-dir ${dirClass}">${dirLabel}</span>` +
     `<span class="console-msg">${escapeHtml(text)}</span>`;
   con.appendChild(line);
+  while (con.children.length > 400) con.removeChild(con.firstChild);
   if (document.getElementById('optAutoscroll').checked) con.scrollTop = con.scrollHeight;
 }
 
@@ -1522,6 +1611,246 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeEditor();
   if (e.key === 'Enter' && (e.target.id === 'fLabel' || e.target.id === 'fSend')) saveEditor();
 });
+
+
+// ═══════════════════════════════════════════════
+// Live Data — values sent from the micro:bit as name:value
+// ═══════════════════════════════════════════════
+const SPARK_MS = 60 * 1000;     // tile graph: last minute
+const DETAIL_MS = 120 * 1000;   // big graph: last 2 minutes
+const STALE_MS = 5000;          // fade a tile if nothing new for 5s
+const MAX_POINTS = 1500;
+const streams = new Map();      // name -> { name, value, isNum, points:[{t,v}], last }
+let liveDirty = false;
+let detailName = null;
+let detailHoverX = null;
+
+function handleLiveLine(line) {
+  // Accept "name:value" or "name=value" (MakeCode's "write value" block sends name:value)
+  const m = line.trim().match(/^([A-Za-z_][\w .\-]{0,23}?)\s*[:=]\s*(.{1,32})$/);
+  if (!m) return;
+  const name = m[1].trim();
+  const raw = m[2].trim();
+  const num = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(raw) ? parseFloat(raw) : NaN;
+  const now = Date.now();
+  let st = streams.get(name);
+  if (!st) { st = { name, points: [], isNum: true }; streams.set(name, st); }
+  st.last = now;
+  if (!isNaN(num)) {
+    st.isNum = true;
+    st.value = num;
+    st.points.push({ t: now, v: num });
+    if (st.points.length > MAX_POINTS) st.points.splice(0, st.points.length - MAX_POINTS);
+  } else {
+    st.isNum = false;
+    st.value = raw;
+  }
+  scheduleLive();
+}
+
+function scheduleLive() {
+  if (liveDirty) return;
+  liveDirty = true;
+  requestAnimationFrame(() => { liveDirty = false; renderLive(); if (detailName) renderDetail(); });
+}
+
+function fmt(v) {
+  if (typeof v !== 'number') return String(v);
+  if (Number.isInteger(v)) return String(v);
+  return (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)).replace(/\.?0+$/, '');
+}
+
+// Time span to draw: from the first reading (or the window limit) up to now, at least 5s
+function spanFor(points, now, maxMs) {
+  if (!points.length) return 5000;
+  return Math.max(5000, Math.min(maxMs, now - points[0].t));
+}
+
+function fmtDur(ms) {
+  const sec = Math.round(ms / 1000);
+  return sec < 90 ? sec + 's' : Math.round(sec / 60) + 'm';
+}
+
+function sparkSVG(points, now) {
+  const span = spanFor(points, now, SPARK_MS);
+  const pts = points.filter(p => p.t >= now - span);
+  if (pts.length < 2) return '';
+  let min = Infinity, max = -Infinity;
+  pts.forEach(p => { if (p.v < min) min = p.v; if (p.v > max) max = p.v; });
+  if (min === max) { min -= 1; max += 1; }
+  const W = 100, H = 40, pad = 4;
+  const x = t => ((t - (now - span)) / span) * W;
+  const y = v => pad + (1 - (v - min) / (max - min)) * (H - pad * 2);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(2) + ' ' + y(p.v).toFixed(2)).join(' ');
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <path d="${d}" fill="none" stroke="#19b8cc" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+  </svg>`;
+}
+
+function ago(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 2) return 'now';
+  if (s < 60) return s + 's ago';
+  return Math.round(s / 60) + 'm ago';
+}
+
+function renderLive() {
+  const grid = document.getElementById('liveGrid');
+  const has = streams.size > 0;
+  grid.style.display = has ? '' : 'none';
+  document.getElementById('liveEmpty').style.display = has ? 'none' : '';
+  document.getElementById('liveClear').style.display = has ? '' : 'none';
+  document.getElementById('liveCount').textContent = streams.size + (streams.size === 1 ? ' value' : ' values');
+  const now = Date.now();
+
+  streams.forEach(st => {
+    let tile = grid.querySelector(`.tile[data-name="${CSS.escape(st.name)}"]`);
+    if (!tile) {
+      tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.dataset.name = st.name;
+      tile.innerHTML = '<div class="tile-name"></div><div class="tile-value"></div><div class="tile-spark"></div><div class="tile-meta"><span class="m-range"></span><span class="m-ago"></span></div>';
+      tile.querySelector('.tile-name').textContent = st.name;
+      tile.addEventListener('click', () => openDetail(st.name));
+      grid.appendChild(tile);
+    }
+    const age = now - st.last;
+    tile.classList.toggle('stale', age > STALE_MS);
+    tile.classList.toggle('fresh', age < 600);
+    const valEl = tile.querySelector('.tile-value');
+    valEl.textContent = fmt(st.value);
+    valEl.classList.toggle('text', !st.isNum);
+    tile.querySelector('.tile-spark').innerHTML = st.isNum ? sparkSVG(st.points, now) : '';
+    tile.querySelector('.tile-spark').style.display = st.isNum ? '' : 'none';
+    let range = '';
+    if (st.isNum) {
+      const recent = st.points.filter(p => p.t >= now - SPARK_MS);
+      if (recent.length > 1) {
+        const vs = recent.map(p => p.v);
+        range = 'min ' + fmt(Math.min(...vs)) + ' · max ' + fmt(Math.max(...vs));
+      }
+    }
+    tile.querySelector('.m-range').textContent = range;
+    tile.querySelector('.m-ago').textContent = ago(age);
+  });
+}
+
+function clearLive() {
+  streams.clear();
+  document.getElementById('liveGrid').innerHTML = '';
+  closeDetail();
+  renderLive();
+}
+
+// Keep "x s ago" and the fading up to date even when nothing arrives
+setInterval(() => { if (streams.size) scheduleLive(); }, 1000);
+
+// ─── Detail view ─────────────────────────────────
+
+function openDetail(name) {
+  detailName = name;
+  detailHoverX = null;
+  document.getElementById('detailTitle').textContent = name;
+  document.getElementById('detailOverlay').classList.add('open');
+  renderDetail();
+}
+
+function closeDetail() {
+  detailName = null;
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+function niceTicks(min, max) {
+  const span = max - min;
+  const step0 = span / 3;
+  const mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(f => f * mag).find(s => s >= step0) || step0;
+  const lo = Math.floor(min / step) * step, hi = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = lo; v <= hi + step / 2; v += step) ticks.push(+v.toFixed(10));
+  return { lo, hi, ticks };
+}
+
+function renderDetail() {
+  const st = streams.get(detailName);
+  const box = document.getElementById('detailChart');
+  const tip = document.getElementById('chartTip');
+  const statsEl = document.getElementById('detailStats');
+  if (!st) { closeDetail(); return; }
+
+  if (!st.isNum) {
+    statsEl.innerHTML = `<div class="dstat" style="grid-column:1/-1"><div class="dstat-l">Latest</div><div class="dstat-v">${escapeHtml(st.value)}</div></div>`;
+    box.querySelectorAll('svg').forEach(e => e.remove());
+    box.style.display = 'none';
+    document.getElementById('detailHint').textContent = 'This value is text, so there is no graph.';
+    return;
+  }
+  box.style.display = '';
+  document.getElementById('detailHint').textContent = 'Shows up to the last 2 minutes. Hover or drag across the graph to read values.';
+
+  const now = Date.now();
+  const span = spanFor(st.points, now, DETAIL_MS);
+  const pts = st.points.filter(p => p.t >= now - span);
+  const vs = pts.map(p => p.v);
+  const avg = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : st.value;
+  statsEl.innerHTML =
+    `<div class="dstat"><div class="dstat-l">Latest</div><div class="dstat-v">${fmt(st.value)}</div></div>` +
+    `<div class="dstat"><div class="dstat-l">Min</div><div class="dstat-v">${vs.length ? fmt(Math.min(...vs)) : '—'}</div></div>` +
+    `<div class="dstat"><div class="dstat-l">Max</div><div class="dstat-v">${vs.length ? fmt(Math.max(...vs)) : '—'}</div></div>` +
+    `<div class="dstat"><div class="dstat-l">Average</div><div class="dstat-v">${fmt(+avg.toFixed(2))}</div></div>`;
+
+  const W = box.clientWidth || 560, H = box.clientHeight || 240;
+  const L = 44, R = 10, T = 10, B = 26;
+  let min = vs.length ? Math.min(...vs) : st.value - 1, max = vs.length ? Math.max(...vs) : st.value + 1;
+  if (min === max) { min -= 1; max += 1; }
+  const { lo, hi, ticks } = niceTicks(min, max);
+  const x = t => L + ((t - (now - span)) / span) * (W - L - R);
+  const y = v => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+
+  let g = '';
+  ticks.forEach(v => {
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#1a5f64" stroke-width="1" ${v === lo ? '' : 'stroke-dasharray="2 4"'}/>`;
+    g += `<text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="#7fa8ac" font-family="JetBrains Mono, monospace">${fmt(v)}</text>`;
+  });
+  [[span, '-' + fmtDur(span)], [span / 2, '-' + fmtDur(span / 2)], [0, 'now']].forEach(([back, lab], i) => {
+    const xx = x(now - back);
+    g += `<text x="${xx}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === 2 ? 'end' : 'middle'}" font-size="11" fill="#7fa8ac" font-family="JetBrains Mono, monospace">${lab}</text>`;
+  });
+  if (pts.length > 1) {
+    const d = pts.map((p, i) => (i ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.v).toFixed(1)).join(' ');
+    g += `<path d="${d}" fill="none" stroke="#19b8cc" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+
+  // Crosshair + tooltip for the point nearest the pointer
+  tip.style.display = 'none';
+  if (detailHoverX !== null && pts.length) {
+    const tAt = (now - span) + ((detailHoverX - L) / (W - L - R)) * span;
+    let best = pts[0];
+    pts.forEach(p => { if (Math.abs(p.t - tAt) < Math.abs(best.t - tAt)) best = p; });
+    const bx = x(best.t), by = y(best.v);
+    g += `<line x1="${bx}" x2="${bx}" y1="${T}" y2="${H - B}" stroke="#7fa8ac" stroke-width="1"/>`;
+    g += `<circle cx="${bx}" cy="${by}" r="5" fill="#19b8cc" stroke="#0a373a" stroke-width="2"/>`;
+    tip.innerHTML = fmt(best.v) + `<span>${ago(now - best.t)}</span>`;
+    tip.style.left = Math.min(Math.max(bx, 50), W - 50) + 'px';
+    tip.style.top = by + 'px';
+    tip.style.display = 'block';
+  }
+
+  let svg = box.querySelector('svg');
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    box.insertBefore(svg, tip);
+    const setX = (e) => { const r = box.getBoundingClientRect(); detailHoverX = e.clientX - r.left; renderDetail(); };
+    box.addEventListener('pointermove', setX);
+    box.addEventListener('pointerdown', setX);
+    box.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { detailHoverX = null; renderDetail(); } });
+  }
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = g;
+}
+
+window.addEventListener('resize', () => { if (detailName) renderDetail(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && detailName) closeDetail(); });
 
 // ─── Init ────────────────────────────────────────
 
