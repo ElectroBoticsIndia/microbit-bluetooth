@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ElectroBotics — micro:bit Button Controller</title>
+<title>ElectroBotics — micro:bit Controller</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -237,40 +237,119 @@
   }
 
   /* ─── Editor Modal ─── */
-  /* ─── Live Data ─── */
-  .live-panel { margin-top: 20px; }
+  /* ─── Dashboard tabs ─── */
+  .dash-head { padding: 10px 14px; }
+  .tabs { display: flex; gap: 4px; background: var(--bg); padding: 4px; border-radius: 11px; border: 1px solid var(--border); }
+  .tab {
+    display: inline-flex; align-items: center; gap: 7px; padding: 8px 14px; border: none; border-radius: 8px;
+    background: transparent; color: var(--text-dim); cursor: pointer; position: relative;
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    transition: background .2s, color .2s;
+  }
+  .tab svg { width: 15px; height: 15px; }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--surface-raised); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .tab-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: none; }
+  .tab-dot.show { display: inline-block; }
+  .tab-dot.alert { background: var(--red); }
+
+  /* ─── Live Data tiles ─── */
   .live-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 12px; padding: 18px;
   }
   .tile {
     background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px;
-    padding: 12px 14px 10px; cursor: pointer; transition: border-color .2s, opacity .3s;
-    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+    padding: 10px 12px 9px; cursor: pointer; transition: border-color .2s, opacity .3s, box-shadow .2s;
+    display: flex; flex-direction: column; min-width: 0; min-height: 168px;
   }
   .tile:hover { border-color: var(--accent); }
   .tile.fresh { border-color: #008fa0aa; }
   .tile.stale { opacity: 0.45; }
+  .tile.alert { border-color: var(--red); box-shadow: 0 0 0 1px var(--red), 0 0 18px var(--red-glow); }
+  .tile-top { display: flex; align-items: center; gap: 6px; min-height: 22px; }
   .tile-name {
     font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--text-dim);
-    text-transform: uppercase; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    text-transform: uppercase; letter-spacing: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
   }
+  .tile-alert {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: #fff; background: var(--red);
+    padding: 2px 6px; border-radius: 5px; white-space: nowrap; display: none;
+  }
+  .tile.alert .tile-alert { display: inline-block; }
+  .tile-gear {
+    background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 15px;
+    padding: 2px 4px; border-radius: 6px; line-height: 1;
+  }
+  .tile-gear:hover { color: var(--text); background: var(--surface); }
+  .tile-body { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
   .tile-value {
     font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text);
     line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .tile-value .unit { font-size: 14px; color: var(--text-dim); font-weight: 600; margin-left: 3px; }
   .tile-value.text { font-size: 20px; }
-  .tile-spark { height: 40px; margin-top: 6px; }
+  .tile-value.huge { font-size: 52px; text-align: center; }
+  .tile-value.huge .unit { font-size: 18px; }
+  .tile-value.center { text-align: center; }
+  .tile-spark { height: 44px; margin-top: 6px; }
   .tile-spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .gauge svg, .compass svg { width: 100%; display: block; }
+  .gauge svg { max-height: 78px; }
+  .compass { display: flex; align-items: center; gap: 10px; }
+  .compass svg { width: 84px; height: 84px; flex-shrink: 0; }
+  .compass .tile-value { font-size: 24px; white-space: nowrap; }
+  .compass-dir { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); font-weight: 700; }
+  .bar-track { height: 18px; background: var(--surface); border-radius: 9px; overflow: hidden; margin-top: 10px; border: 1px solid var(--border); }
+  .bar-fill { height: 100%; background: #19b8cc; border-radius: 8px; transition: width .25s ease-out; }
+  .tile.alert .bar-fill { background: var(--red); }
+  .bar-scale { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); margin-top: 4px; }
+  .lamp-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .lamp {
+    width: 58px; height: 58px; border-radius: 50%; background: #1d3b3e; border: 3px solid #2a5357;
+    transition: background .15s, box-shadow .15s;
+  }
+  .lamp.on { background: #8ab600; border-color: #b4e01a; box-shadow: 0 0 22px #8ab600aa; }
+  .lamp-label { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--text-dim); letter-spacing: 1px; }
+  .lamp-label.on { color: var(--text); }
   .tile-meta {
     font-family: var(--font-mono); font-size: 10px; color: var(--text-dim);
-    display: flex; justify-content: space-between; gap: 6px; margin-top: 4px;
+    display: flex; justify-content: space-between; gap: 6px; margin-top: 6px;
   }
   .live-empty { padding: 22px 20px 20px; color: var(--text-dim); font-size: 13px; line-height: 1.6; text-align: center; }
   .live-empty code {
     background: var(--surface-raised); padding: 2px 6px; border-radius: 4px;
     font-family: var(--font-mono); color: var(--text); font-size: 12px;
   }
+
+  /* Tile settings */
+  .style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .style-opt {
+    border: 2px solid var(--border); background: var(--surface-raised); border-radius: 10px; cursor: pointer;
+    padding: 8px 4px 6px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    color: var(--text); font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+  }
+  .style-opt svg { width: 44px; height: 28px; color: #19b8cc; }
+  .style-opt:hover { border-color: var(--accent); }
+  .style-opt.selected { border-color: var(--amber); box-shadow: 0 0 0 2px var(--amber-glow); }
+  .row2 { display: flex; gap: 8px; align-items: center; }
+  .row2 > span { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; }
+  .field input[type=number], .field select {
+    width: 100%; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; color: var(--text); font-family: var(--font-mono); font-size: 14px; outline: none; min-width: 0;
+  }
+  .field input[type=number]:focus, .field select:focus { border-color: var(--accent); }
+  .chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .chip {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); cursor: pointer;
+  }
+  .chip:hover { color: var(--text); border-color: var(--accent); }
+  .btn-link-plain {
+    background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 7px 12px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700; cursor: pointer; align-self: flex-start;
+  }
+  .btn-link-plain:hover { border-color: var(--accent); }
 
   /* Detail chart */
   .detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
@@ -486,7 +565,16 @@
     .led { width: 32px; height: 32px; }
     .led-actions { flex-direction: row; }
     .live-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+    .tile { min-height: 150px; padding: 9px 10px 8px; }
     .tile-value { font-size: 22px; }
+    .tile-value.huge { font-size: 40px; }
+    .compass { flex-direction: column; gap: 4px; }
+    .compass svg { width: 70px; height: 70px; }
+    .compass .tile-value { font-size: 20px; text-align: center; }
+    .dash-head { flex-wrap: wrap; }
+    .tabs { flex: 1 1 100%; }
+    .tab { flex: 1; justify-content: center; padding: 8px 6px; }
+    #actController, #actLive { margin-left: auto; }
     .detail-stats { grid-template-columns: 1fr 1fr; }
   }
 </style>
@@ -502,7 +590,7 @@
     <div class="header-text">
       <img src="ElectroBotics_No_Makerspace.png" alt="ElectroBotics" class="brand-name" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
       <div style="display:none;font-family:var(--font-body);font-size:24px;font-weight:700;color:var(--text);letter-spacing:-0.5px;margin-bottom:4px;">Electro<span style="color:var(--red);font-style:italic;">Botics</span></div>
-      <div class="brand-tagline">micro:bit <span>button controller</span></div>
+      <div class="brand-tagline">micro:bit <span>controller</span></div>
     </div>
   </div>
 
@@ -519,46 +607,50 @@
     </button>
   </div>
 
-  <!-- My Buttons Panel -->
+  <!-- Dashboard: Controller | Live Data -->
   <div class="panel">
-    <div class="panel-header">
-      <div class="panel-title">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
-        My Buttons
+    <div class="panel-header dash-head">
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="tabController" role="tab" aria-selected="true" onclick="switchTab('controller')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          Controller
+        </button>
+        <button class="tab" id="tabLive" role="tab" aria-selected="false" onclick="switchTab('live')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Live Data
+          <span class="tab-dot" id="liveDot"></span>
+        </button>
       </div>
-      <div class="header-actions">
+      <div class="header-actions" id="actController">
         <button class="btn-head" id="editToggle" onclick="toggleEditMode()">✎ Arrange</button>
         <button class="btn-head primary" onclick="openEditor()">＋ Add</button>
       </div>
-    </div>
-    <div class="board-wrap">
-      <div class="board" id="board"></div>
-      <div class="empty-state" id="emptyState">
-        No buttons yet. Tap <strong>＋ Add</strong> to make your own!<br>
-        <button class="link-btn" onclick="addSampleButtons()">or load some sample buttons</button>
-      </div>
-      <div class="trash-zone" id="trashZone" style="display:none;">🗑 Drag a button here to delete it</div>
-    </div>
-    <div class="grid-hint" id="gridHint"></div>
-  </div>
-
-  <!-- Live Data Panel -->
-  <div class="panel live-panel">
-    <div class="panel-header">
-      <div class="panel-title">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-        Live Data
-      </div>
-      <div class="header-actions">
+      <div class="header-actions" id="actLive" style="display:none;">
         <span class="panel-badge" id="liveCount">0 values</span>
         <button class="btn-head" id="liveClear" onclick="clearLive()" style="display:none;">Clear</button>
       </div>
     </div>
-    <div class="live-grid" id="liveGrid" style="display:none;"></div>
-    <div class="live-empty" id="liveEmpty">
-      Nothing received yet. In MakeCode, use<br>
-      <code>bluetooth uart write value "temp" = temperature</code><br>
-      and each value gets its own tile here, with a live graph.
+
+    <div id="viewController">
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+        <div class="empty-state" id="emptyState">
+          No buttons yet. Tap <strong>＋ Add</strong> to make your own!<br>
+          <button class="link-btn" onclick="addSampleButtons()">or load some sample buttons</button>
+        </div>
+        <div class="trash-zone" id="trashZone" style="display:none;">🗑 Drag a button here to delete it</div>
+      </div>
+      <div class="grid-hint" id="gridHint"></div>
+    </div>
+
+    <div id="viewLive" style="display:none;">
+      <div class="live-grid" id="liveGrid" style="display:none;"></div>
+      <div class="live-empty" id="liveEmpty">
+        Nothing received yet. In MakeCode, use<br>
+        <code>bluetooth uart write value "temp" = temperature</code><br>
+        and each value gets its own tile here.
+      </div>
+      <div class="grid-hint" id="liveHint" style="display:none;">Tap a tile for a bigger graph. Use ⚙ to change how a tile looks, add a unit or set an alert.</div>
     </div>
   </div>
 
@@ -640,7 +732,56 @@
     <div class="modal-body">
       <div class="detail-stats" id="detailStats"></div>
       <div class="detail-chart" id="detailChart"><div class="chart-tip" id="chartTip"></div></div>
+      <button class="btn-link-plain" onclick="openTileSettings(detailName)">⚙ Tile settings</button>
       <div class="field-hint" id="detailHint">Shows up to the last 2 minutes. Hover or drag across the graph to read values.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tile settings -->
+<div class="modal-overlay" id="tileOverlay" onclick="if(event.target===this)closeTileSettings()">
+  <div class="modal">
+    <div class="modal-head">
+      <span id="tsTitle">Tile settings</span>
+      <button class="modal-close" onclick="closeTileSettings()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Show as</label>
+        <div class="style-grid" id="tsStyles"></div>
+      </div>
+      <div class="field">
+        <label for="tsUnit">Unit (optional)</label>
+        <input type="text" id="tsUnit" maxlength="6" placeholder="e.g. °C">
+        <div class="chip-row" id="tsUnitChips"></div>
+      </div>
+      <div class="field" id="tsRangeField">
+        <label>Range (for gauge and level bar)</label>
+        <div class="row2">
+          <input type="number" id="tsMin" placeholder="Auto" step="any">
+          <span>to</span>
+          <input type="number" id="tsMax" placeholder="Auto" step="any">
+        </div>
+        <div class="field-hint">Leave empty to use the lowest and highest values received. Light and sound go 0 to 255; pins go 0 to 1023.</div>
+      </div>
+      <div class="field">
+        <label>Alert</label>
+        <div class="row2">
+          <select id="tsAlert" onchange="document.getElementById('tsAlertVal').disabled = this.value === 'none'">
+            <option value="none">Off</option>
+            <option value="above">When above</option>
+            <option value="below">When below</option>
+          </select>
+          <input type="number" id="tsAlertVal" placeholder="Value" step="any">
+        </div>
+        <div class="field-hint">The tile turns red and the phone vibrates when the value crosses this level. Example: soil moisture below 300 means water the plant.</div>
+      </div>
+      <div class="form-error" id="tsError"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-delete" onclick="resetTileSettings()">Reset</button>
+      <button class="btn btn-cancel" onclick="closeTileSettings()">Cancel</button>
+      <button class="btn btn-save" onclick="saveTileSettings()">Save</button>
     </div>
   </div>
 </div>
@@ -1614,16 +1755,88 @@ document.addEventListener('keydown', (e) => {
 
 
 // ═══════════════════════════════════════════════
+// Dashboard tabs
+// ═══════════════════════════════════════════════
+let currentTab = 'controller';
+
+function switchTab(name) {
+  currentTab = name;
+  const live = name === 'live';
+  document.getElementById('tabController').classList.toggle('active', !live);
+  document.getElementById('tabLive').classList.toggle('active', live);
+  document.getElementById('tabController').setAttribute('aria-selected', String(!live));
+  document.getElementById('tabLive').setAttribute('aria-selected', String(live));
+  document.getElementById('viewController').style.display = live ? 'none' : '';
+  document.getElementById('viewLive').style.display = live ? '' : 'none';
+  document.getElementById('actController').style.display = live ? 'none' : '';
+  document.getElementById('actLive').style.display = live ? '' : 'none';
+  if (live) {
+    const dot = document.getElementById('liveDot');
+    dot.classList.remove('show', 'alert');
+    if (editMode) toggleEditMode();
+    renderLive();
+  }
+  try { localStorage.setItem('eb_tab', name); } catch (e) {}
+}
+
+function flagLiveTab(isAlert) {
+  if (currentTab === 'live') return;
+  const dot = document.getElementById('liveDot');
+  dot.classList.add('show');
+  if (isAlert) dot.classList.add('alert');
+}
+
+// ═══════════════════════════════════════════════
 // Live Data — values sent from the micro:bit as name:value
 // ═══════════════════════════════════════════════
 const SPARK_MS = 60 * 1000;     // tile graph: last minute
 const DETAIL_MS = 120 * 1000;   // big graph: last 2 minutes
 const STALE_MS = 5000;          // fade a tile if nothing new for 5s
 const MAX_POINTS = 1500;
-const streams = new Map();      // name -> { name, value, isNum, points:[{t,v}], last }
+const streams = new Map();      // name -> { name, value, isNum, points:[{t,v}], last, alerting }
 let liveDirty = false;
 let detailName = null;
 let detailHoverX = null;
+
+// ─── Tile settings (saved per value name) ───
+const TILE_KEY = 'eb_live_tiles_v1';
+const STYLES = [
+  { id: 'graph',   name: 'Graph' },
+  { id: 'gauge',   name: 'Gauge' },
+  { id: 'bar',     name: 'Level bar' },
+  { id: 'number',  name: 'Big number' },
+  { id: 'onoff',   name: 'On / Off' },
+  { id: 'compass', name: 'Compass' },
+];
+let tileCfg = {};
+try { tileCfg = JSON.parse(localStorage.getItem(TILE_KEY) || '{}') || {}; } catch (e) { tileCfg = {}; }
+function saveTileCfg() { try { localStorage.setItem(TILE_KEY, JSON.stringify(tileCfg)); } catch (e) {} }
+
+// Pick a sensible starting style from the value's name
+function guessCfg(name) {
+  const n = name.toLowerCase();
+  const c = { style: 'graph', unit: '', min: null, max: null, alert: 'none', alertValue: null, auto: true };
+  if (/compass|heading|direction/.test(n)) { c.style = 'compass'; c.unit = '°'; c.min = 0; c.max = 359; }
+  else if (/temp/.test(n)) { c.style = 'gauge'; c.unit = '°C'; c.min = 0; c.max = 50; }
+  else if (/light|lux/.test(n)) { c.style = 'bar'; c.min = 0; c.max = 255; }
+  else if (/sound|noise|loud/.test(n)) { c.style = 'bar'; c.min = 0; c.max = 255; }
+  else if (/moist|soil|water/.test(n)) { c.style = 'bar'; c.min = 0; c.max = 1023; }
+  else if (/dist|range|ultra/.test(n)) { c.style = 'bar'; c.unit = 'cm'; c.min = 0; c.max = 200; }
+  else if (/humid/.test(n)) { c.style = 'gauge'; c.unit = '%'; c.min = 0; c.max = 100; }
+  else if (/score|count|press|points|steps|clicks|total|lives/.test(n)) { c.style = 'number'; }
+  else if (/button|btn|switch|door|motion|pir|touch|led|lamp|state/.test(n)) { c.style = 'onoff'; }
+  return c;
+}
+
+function cfgFor(name) {
+  if (!tileCfg[name]) { tileCfg[name] = guessCfg(name); saveTileCfg(); }
+  return tileCfg[name];
+}
+
+function checkAlert(st, cfg) {
+  if (!st.isNum || cfg.alert === 'none' || cfg.alertValue === null || cfg.alertValue === '') return false;
+  return cfg.alert === 'above' ? st.value > cfg.alertValue : st.value < cfg.alertValue;
+}
 
 function handleLiveLine(line) {
   // Accept "name:value" or "name=value" (MakeCode's "write value" block sends name:value)
@@ -1634,17 +1847,37 @@ function handleLiveLine(line) {
   const num = /^-?\d+(\.\d+)?([eE][-+]?\d+)?$/.test(raw) ? parseFloat(raw) : NaN;
   const now = Date.now();
   let st = streams.get(name);
-  if (!st) { st = { name, points: [], isNum: true }; streams.set(name, st); }
+  if (!st) {
+    st = { name, points: [], isNum: true, alerting: false };
+    streams.set(name, st);
+    flagLiveTab(false);
+  }
   st.last = now;
+  const cfg = cfgFor(name);
   if (!isNaN(num)) {
     st.isNum = true;
     st.value = num;
     st.points.push({ t: now, v: num });
     if (st.points.length > MAX_POINTS) st.points.splice(0, st.points.length - MAX_POINTS);
+
+    // Smart style: a value that only ever sends 0 or 1 is probably a switch
+    if (cfg.auto && (cfg.style === 'graph' || cfg.binaryGuess) && st.points.length >= 4) {
+      const binary = st.points.every(p => p.v === 0 || p.v === 1);
+      if (binary && cfg.style === 'graph') { cfg.style = 'onoff'; cfg.binaryGuess = true; saveTileCfg(); }
+      else if (!binary && cfg.binaryGuess) { cfg.style = 'graph'; cfg.binaryGuess = false; saveTileCfg(); }
+    }
   } else {
     st.isNum = false;
     st.value = raw;
   }
+
+  const alerting = checkAlert(st, cfg);
+  if (alerting && !st.alerting) {
+    logSystem('⚠ ' + name + ' is ' + cfg.alert + ' ' + fmt(cfg.alertValue) + (cfg.unit ? ' ' + cfg.unit : '') + ' (now ' + fmt(st.value) + ')');
+    if (navigator.vibrate) { try { navigator.vibrate([150, 80, 150]); } catch (e) {} }
+    flagLiveTab(true);
+  }
+  st.alerting = alerting;
   scheduleLive();
 }
 
@@ -1658,6 +1891,10 @@ function fmt(v) {
   if (typeof v !== 'number') return String(v);
   if (Number.isInteger(v)) return String(v);
   return (Math.abs(v) >= 100 ? v.toFixed(1) : v.toFixed(2)).replace(/\.?0+$/, '');
+}
+
+function withUnit(v, cfg) {
+  return escapeHtml(fmt(v)) + (cfg.unit ? `<span class="unit">${escapeHtml(cfg.unit)}</span>` : '');
 }
 
 // Time span to draw: from the first reading (or the window limit) up to now, at least 5s
@@ -1694,43 +1931,137 @@ function ago(ms) {
   return Math.round(s / 60) + 'm ago';
 }
 
+// Range used by gauge and level bar: the student's numbers, or what has been seen so far
+function rangeFor(st, cfg) {
+  let lo = (cfg.min === null || cfg.min === '') ? null : +cfg.min;
+  let hi = (cfg.max === null || cfg.max === '') ? null : +cfg.max;
+  if (lo === null || hi === null) {
+    const vs = st.points.map(p => p.v);
+    const seenLo = vs.length ? Math.min(...vs) : 0, seenHi = vs.length ? Math.max(...vs) : 1;
+    if (lo === null) lo = Math.min(0, seenLo);
+    if (hi === null) hi = seenHi;
+  }
+  if (hi <= lo) hi = lo + 1;
+  return { lo, hi };
+}
+
+function fracOf(v, r) { return Math.max(0, Math.min(1, (v - r.lo) / (r.hi - r.lo))); }
+
+function gaugeSVG(st, cfg) {
+  const r = rangeFor(st, cfg);
+  const f = fracOf(st.value, r);
+  const cx = 60, cy = 58, R = 46;
+  const pt = (frac, rad) => {
+    const a = Math.PI * (1 - frac);
+    return [cx + rad * Math.cos(a), cy - rad * Math.sin(a)];
+  };
+  const [sx, sy] = pt(0, R), [ex, ey] = pt(1, R), [fx, fy] = pt(f, R);
+  const [nx, ny] = pt(f, R - 12);
+  const col = st.alerting ? '#d76241' : '#19b8cc';
+  let alertTick = '';
+  if (cfg.alert !== 'none' && cfg.alertValue !== null && cfg.alertValue !== '') {
+    const af = fracOf(+cfg.alertValue, r);
+    const [a1x, a1y] = pt(af, R - 9), [a2x, a2y] = pt(af, R + 9);
+    alertTick = `<line x1="${a1x}" y1="${a1y}" x2="${a2x}" y2="${a2y}" stroke="#d76241" stroke-width="2.5" stroke-linecap="round"/>`;
+  }
+  return `<svg viewBox="0 0 120 74">
+    <path d="M${sx} ${sy} A${R} ${R} 0 0 1 ${ex} ${ey}" fill="none" stroke="#0a373a" stroke-width="10" stroke-linecap="round"/>
+    ${f > 0.005 ? `<path d="M${sx} ${sy} A${R} ${R} 0 0 1 ${fx} ${fy}" fill="none" stroke="${col}" stroke-width="10" stroke-linecap="round"/>` : ''}
+    ${alertTick}
+    <line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#f0f7f8" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#f0f7f8"/>
+    <text x="${sx}" y="72" text-anchor="middle" font-size="9" fill="#7fa8ac" font-family="JetBrains Mono, monospace">${escapeHtml(fmt(r.lo))}</text>
+    <text x="${ex}" y="72" text-anchor="middle" font-size="9" fill="#7fa8ac" font-family="JetBrains Mono, monospace">${escapeHtml(fmt(r.hi))}</text>
+  </svg>`;
+}
+
+function compassSVG(deg) {
+  const ticks = [0, 90, 180, 270].map(a => {
+    const rad = (a - 90) * Math.PI / 180;
+    return `<line x1="${50 + 38 * Math.cos(rad)}" y1="${50 + 38 * Math.sin(rad)}" x2="${50 + 44 * Math.cos(rad)}" y2="${50 + 44 * Math.sin(rad)}" stroke="#7fa8ac" stroke-width="2"/>`;
+  }).join('');
+  const lab = (t, x, y, c) => `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="700" fill="${c}" font-family="JetBrains Mono, monospace">${t}</text>`;
+  return `<svg viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="46" fill="#0a373a" stroke="#1a5f64" stroke-width="2"/>
+    ${ticks}
+    ${lab('N', 50, 16, '#ff6b5a')}${lab('E', 84, 50, '#7fa8ac')}${lab('S', 50, 84, '#7fa8ac')}${lab('W', 16, 50, '#7fa8ac')}
+    <g transform="rotate(${((deg % 360) + 360) % 360} 50 50)">
+      <polygon points="50,22 57,52 50,47 43,52" fill="#19b8cc"/>
+      <polygon points="50,78 57,52 50,57 43,52" fill="#2a5357"/>
+    </g>
+    <circle cx="50" cy="50" r="3.5" fill="#f0f7f8"/>
+  </svg>`;
+}
+
+function cardinal(deg) {
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return dirs[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
+
+function tileBodyHTML(st, cfg, now) {
+  if (!st.isNum) return `<div class="tile-value text">${escapeHtml(st.value)}</div>`;
+  switch (cfg.style) {
+    case 'gauge':
+      return `<div class="gauge">${gaugeSVG(st, cfg)}</div><div class="tile-value center" style="font-size:22px">${withUnit(st.value, cfg)}</div>`;
+    case 'bar': {
+      const r = rangeFor(st, cfg);
+      return `<div class="tile-value">${withUnit(st.value, cfg)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(fracOf(st.value, r) * 100).toFixed(1)}%"></div></div>
+        <div class="bar-scale"><span>${escapeHtml(fmt(r.lo))}</span><span>${escapeHtml(fmt(r.hi))}</span></div>`;
+    }
+    case 'number':
+      return `<div class="tile-value huge">${withUnit(st.value, cfg)}</div>`;
+    case 'onoff': {
+      const on = st.value !== 0;
+      return `<div class="lamp-wrap"><div class="lamp ${on ? 'on' : ''}"></div><div class="lamp-label ${on ? 'on' : ''}">${on ? 'ON' : 'OFF'}</div></div>`;
+    }
+    case 'compass':
+      return `<div class="compass">${compassSVG(st.value)}<div><div class="tile-value">${escapeHtml(fmt(Math.round(st.value)))}<span class="unit">°</span> <span class="compass-dir">${cardinal(st.value)}</span></div></div></div>`;
+    default:
+      return `<div class="tile-value">${withUnit(st.value, cfg)}</div><div class="tile-spark">${sparkSVG(st.points, now)}</div>`;
+  }
+}
+
 function renderLive() {
-  const grid = document.getElementById('liveGrid');
   const has = streams.size > 0;
+  document.getElementById('liveCount').textContent = streams.size + (streams.size === 1 ? ' value' : ' values');
+  document.getElementById('liveClear').style.display = has ? '' : 'none';
+  if (currentTab !== 'live') return;   // draw tiles only when the tab is showing
+
+  const grid = document.getElementById('liveGrid');
   grid.style.display = has ? '' : 'none';
   document.getElementById('liveEmpty').style.display = has ? 'none' : '';
-  document.getElementById('liveClear').style.display = has ? '' : 'none';
-  document.getElementById('liveCount').textContent = streams.size + (streams.size === 1 ? ' value' : ' values');
+  document.getElementById('liveHint').style.display = has ? '' : 'none';
   const now = Date.now();
 
   streams.forEach(st => {
+    const cfg = cfgFor(st.name);
     let tile = grid.querySelector(`.tile[data-name="${CSS.escape(st.name)}"]`);
     if (!tile) {
       tile = document.createElement('div');
       tile.className = 'tile';
       tile.dataset.name = st.name;
-      tile.innerHTML = '<div class="tile-name"></div><div class="tile-value"></div><div class="tile-spark"></div><div class="tile-meta"><span class="m-range"></span><span class="m-ago"></span></div>';
+      tile.innerHTML = '<div class="tile-top"><span class="tile-name"></span><span class="tile-alert"></span><button class="tile-gear" title="Tile settings" aria-label="Tile settings">⚙</button></div><div class="tile-body"></div><div class="tile-meta"><span class="m-range"></span><span class="m-ago"></span></div>';
       tile.querySelector('.tile-name').textContent = st.name;
       tile.addEventListener('click', () => openDetail(st.name));
+      tile.querySelector('.tile-gear').addEventListener('click', (e) => { e.stopPropagation(); openTileSettings(st.name); });
       grid.appendChild(tile);
     }
     const age = now - st.last;
     tile.classList.toggle('stale', age > STALE_MS);
-    tile.classList.toggle('fresh', age < 600);
-    const valEl = tile.querySelector('.tile-value');
-    valEl.textContent = fmt(st.value);
-    valEl.classList.toggle('text', !st.isNum);
-    tile.querySelector('.tile-spark').innerHTML = st.isNum ? sparkSVG(st.points, now) : '';
-    tile.querySelector('.tile-spark').style.display = st.isNum ? '' : 'none';
-    let range = '';
-    if (st.isNum) {
+    tile.classList.toggle('fresh', age < 600 && !st.alerting);
+    tile.classList.toggle('alert', !!st.alerting);
+    tile.querySelector('.tile-alert').textContent = st.alerting ? '⚠ ' + (cfg.alert === 'above' ? 'above ' : 'below ') + fmt(cfg.alertValue) : '';
+    tile.querySelector('.tile-body').innerHTML = tileBodyHTML(st, cfg, now);
+    let meta = '';
+    if (st.isNum && cfg.style === 'graph') {
       const recent = st.points.filter(p => p.t >= now - SPARK_MS);
       if (recent.length > 1) {
         const vs = recent.map(p => p.v);
-        range = 'min ' + fmt(Math.min(...vs)) + ' · max ' + fmt(Math.max(...vs));
+        meta = 'min ' + fmt(Math.min(...vs)) + ' · max ' + fmt(Math.max(...vs));
       }
     }
-    tile.querySelector('.m-range').textContent = range;
+    tile.querySelector('.m-range').textContent = meta;
     tile.querySelector('.m-ago').textContent = ago(age);
   });
 }
@@ -1744,6 +2075,110 @@ function clearLive() {
 
 // Keep "x s ago" and the fading up to date even when nothing arrives
 setInterval(() => { if (streams.size) scheduleLive(); }, 1000);
+
+// ─── Tile settings dialog ────────────────────────
+let tsName = null;
+let tsStyle = 'graph';
+
+function styleIcon(id) {
+  const s = 'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"';
+  switch (id) {
+    case 'graph':   return `<svg viewBox="0 0 44 28"><polyline ${s} points="3,22 12,14 19,18 28,7 35,12 41,5"/></svg>`;
+    case 'gauge':   return `<svg viewBox="0 0 44 28"><path ${s} d="M6 25 A16 16 0 0 1 38 25"/><line ${s} x1="22" y1="25" x2="30" y2="14"/></svg>`;
+    case 'bar':     return `<svg viewBox="0 0 44 28"><rect x="3" y="10" width="38" height="9" rx="4.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5" y="12" width="22" height="5" rx="2.5" fill="currentColor"/></svg>`;
+    case 'number':  return `<svg viewBox="0 0 44 28"><text x="22" y="22" text-anchor="middle" font-size="20" font-weight="800" fill="currentColor" font-family="JetBrains Mono, monospace">42</text></svg>`;
+    case 'onoff':   return `<svg viewBox="0 0 44 28"><circle cx="22" cy="14" r="10" fill="currentColor" opacity=".9"/></svg>`;
+    case 'compass': return `<svg viewBox="0 0 44 28"><circle cx="22" cy="14" r="12" fill="none" stroke="currentColor" stroke-width="2"/><polygon points="22,4 26,15 22,13 18,15" fill="currentColor"/></svg>`;
+  }
+  return '';
+}
+
+function buildTileSettings() {
+  const g = document.getElementById('tsStyles');
+  g.innerHTML = '';
+  STYLES.forEach(sty => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'style-opt';
+    b.dataset.style = sty.id;
+    b.innerHTML = styleIcon(sty.id) + sty.name;
+    b.onclick = () => { tsStyle = sty.id; refreshTileSettings(); };
+    g.appendChild(b);
+  });
+  const chips = document.getElementById('tsUnitChips');
+  ['°C', '%', 'cm', '°', 'mg', 'lux'].forEach(u => {
+    const c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'chip';
+    c.textContent = u;
+    c.onclick = () => { document.getElementById('tsUnit').value = u; };
+    chips.appendChild(c);
+  });
+}
+
+function refreshTileSettings() {
+  document.querySelectorAll('#tsStyles .style-opt').forEach(o => o.classList.toggle('selected', o.dataset.style === tsStyle));
+  document.getElementById('tsRangeField').style.display = (tsStyle === 'gauge' || tsStyle === 'bar') ? '' : 'none';
+}
+
+function openTileSettings(name) {
+  if (!name) return;
+  tsName = name;
+  const cfg = cfgFor(name);
+  tsStyle = cfg.style;
+  document.getElementById('tsTitle').textContent = name + ' — tile settings';
+  document.getElementById('tsUnit').value = cfg.unit || '';
+  document.getElementById('tsMin').value = cfg.min === null ? '' : cfg.min;
+  document.getElementById('tsMax').value = cfg.max === null ? '' : cfg.max;
+  document.getElementById('tsAlert').value = cfg.alert || 'none';
+  document.getElementById('tsAlertVal').value = cfg.alertValue === null ? '' : cfg.alertValue;
+  document.getElementById('tsAlertVal').disabled = (cfg.alert || 'none') === 'none';
+  document.getElementById('tsError').classList.remove('show');
+  refreshTileSettings();
+  document.getElementById('tileOverlay').classList.add('open');
+}
+
+function closeTileSettings() {
+  document.getElementById('tileOverlay').classList.remove('open');
+  tsName = null;
+}
+
+function numOrNull(id) {
+  const v = document.getElementById(id).value.trim();
+  return v === '' || isNaN(+v) ? null : +v;
+}
+
+function saveTileSettings() {
+  if (!tsName) return;
+  const err = document.getElementById('tsError');
+  const min = numOrNull('tsMin'), max = numOrNull('tsMax');
+  const alert = document.getElementById('tsAlert').value;
+  const alertValue = numOrNull('tsAlertVal');
+  if (min !== null && max !== null && max <= min) {
+    err.textContent = 'The second number must be bigger than the first.';
+    err.classList.add('show');
+    return;
+  }
+  if (alert !== 'none' && alertValue === null) {
+    err.textContent = 'Enter the value for the alert, or turn the alert off.';
+    err.classList.add('show');
+    return;
+  }
+  tileCfg[tsName] = { style: tsStyle, unit: document.getElementById('tsUnit').value.trim(), min, max, alert, alertValue, auto: false };
+  saveTileCfg();
+  const st = streams.get(tsName);
+  if (st) st.alerting = checkAlert(st, tileCfg[tsName]);
+  closeTileSettings();
+  scheduleLive();
+}
+
+function resetTileSettings() {
+  if (!tsName) return;
+  tileCfg[tsName] = guessCfg(tsName);
+  saveTileCfg();
+  openTileSettings(tsName);
+  scheduleLive();
+}
 
 // ─── Detail view ─────────────────────────────────
 
@@ -1792,9 +2227,11 @@ function renderDetail() {
   const span = spanFor(st.points, now, DETAIL_MS);
   const pts = st.points.filter(p => p.t >= now - span);
   const vs = pts.map(p => p.v);
+  const dcfg = cfgFor(st.name);
+  const u = dcfg.unit ? ' ' + escapeHtml(dcfg.unit) : '';
   const avg = vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : st.value;
   statsEl.innerHTML =
-    `<div class="dstat"><div class="dstat-l">Latest</div><div class="dstat-v">${fmt(st.value)}</div></div>` +
+    `<div class="dstat"><div class="dstat-l">Latest</div><div class="dstat-v">${fmt(st.value)}${u}</div></div>` +
     `<div class="dstat"><div class="dstat-l">Min</div><div class="dstat-v">${vs.length ? fmt(Math.min(...vs)) : '—'}</div></div>` +
     `<div class="dstat"><div class="dstat-l">Max</div><div class="dstat-v">${vs.length ? fmt(Math.max(...vs)) : '—'}</div></div>` +
     `<div class="dstat"><div class="dstat-l">Average</div><div class="dstat-v">${fmt(+avg.toFixed(2))}</div></div>`;
@@ -1830,7 +2267,7 @@ function renderDetail() {
     const bx = x(best.t), by = y(best.v);
     g += `<line x1="${bx}" x2="${bx}" y1="${T}" y2="${H - B}" stroke="#7fa8ac" stroke-width="1"/>`;
     g += `<circle cx="${bx}" cy="${by}" r="5" fill="#19b8cc" stroke="#0a373a" stroke-width="2"/>`;
-    tip.innerHTML = fmt(best.v) + `<span>${ago(now - best.t)}</span>`;
+    tip.innerHTML = fmt(best.v) + u + `<span>${ago(now - best.t)}</span>`;
     tip.style.left = Math.min(Math.max(bx, 50), W - 50) + 'px';
     tip.style.top = by + 'px';
     tip.style.display = 'block';
@@ -1855,6 +2292,8 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && detailNa
 // ─── Init ────────────────────────────────────────
 
 buildEditorPickers();
+buildTileSettings();
+try { if (localStorage.getItem('eb_tab') === 'live') switchTab('live'); } catch (e) {}
 loadButtons();
 renderButtons();
 
