@@ -135,11 +135,12 @@
   .panel-title .icon { width: 18px; height: 18px; opacity: 0.6; }
   .panel-badge {
     font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
-    background: var(--surface-raised); padding: 3px 8px; border-radius: 6px;
+    background: var(--surface-raised); padding: 3px 10px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center; line-height: 1;
   }
 
   /* Header action buttons */
-  .header-actions { display: flex; gap: 6px; }
+  .header-actions { display: flex; gap: 6px; align-items: stretch; }
   .btn-head {
     font-family: var(--font-mono); font-size: 11px; font-weight: 700; padding: 6px 12px;
     border-radius: 8px; border: 1px solid var(--border); background: var(--surface-raised);
@@ -296,6 +297,7 @@
   .tile-spark svg { width: 100%; height: 100%; display: block; overflow: visible; }
   .gauge svg, .compass svg { width: 100%; display: block; }
   .gauge svg { max-height: 78px; }
+  .gauge-val { font-size: 22px; }
   .compass { display: flex; align-items: center; gap: 10px; }
   .compass svg { width: 84px; height: 84px; flex-shrink: 0; }
   .compass .tile-value { font-size: 24px; white-space: nowrap; }
@@ -351,12 +353,43 @@
   }
   .btn-link-plain:hover { border-color: var(--accent); }
 
+  /* Detail: big widget on top */
+  .hero {
+    background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 16px; min-height: 180px; display: flex; flex-direction: column; justify-content: center;
+    transition: border-color .2s, box-shadow .2s;
+  }
+  .hero.alert { border-color: var(--red); box-shadow: 0 0 0 2px rgba(215,98,65,.25); }
+  .hero-alert { align-self: center; margin-bottom: 8px; font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+    background: var(--red); color: #fff; padding: 3px 10px; border-radius: 7px; }
+  .hero .tile-value { font-size: 44px; text-align: center; }
+  .hero .tile-value .unit { font-size: 20px; }
+  .hero .tile-value.huge { font-size: 88px; }
+  .hero .tile-value.huge .unit { font-size: 28px; }
+  .hero .tile-value.text { font-size: 40px; white-space: normal; word-break: break-word; }
+  .hero .gauge { width: 100%; max-width: 340px; margin: 0 auto; }
+  .hero .gauge svg { max-height: none; }
+  .hero .gauge-val { font-size: 40px; margin-top: 2px; }
+  .hero .bar-track { height: 34px; border-radius: 17px; margin-top: 16px; }
+  .hero .bar-fill { border-radius: 16px; }
+  .hero .bar-scale { font-size: 12px; margin-top: 6px; }
+  .hero .lamp { width: 130px; height: 130px; border-width: 5px; }
+  .hero .lamp.on { box-shadow: 0 0 50px #8ab600aa; }
+  .hero .lamp-label { font-size: 24px; }
+  .hero .compass { flex-direction: column; gap: 10px; }
+  .hero .compass svg { width: 230px; height: 230px; max-width: 70vw; max-height: 70vw; }
+  .hero .compass .tile-value { font-size: 40px; }
+  .hero .compass-dir { font-size: 22px; color: var(--amber); margin-left: 6px; }
+  .detail-trend-l { font-family: var(--font-mono); font-size: 10px; font-weight: 700; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: -6px; }
+
   /* Detail chart */
   .detail-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .detail-stats .dstat-v { font-size: 14px; }
   .dstat { background: var(--surface-raised); border-radius: 10px; padding: 8px 10px; }
   .dstat-l { font-family: var(--font-mono); font-size: 9px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
   .dstat-v { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--text); margin-top: 2px; }
-  .detail-chart { position: relative; height: 240px; touch-action: none; }
+  .detail-chart { position: relative; height: 150px; touch-action: none; }
   .detail-chart svg { width: 100%; height: 100%; display: block; }
   .chart-tip {
     position: absolute; pointer-events: none; background: #061f22; border: 1px solid var(--border);
@@ -575,7 +608,12 @@
     .tabs { flex: 1 1 100%; }
     .tab { flex: 1; justify-content: center; padding: 8px 6px; }
     #actController, #actLive { margin-left: auto; }
-    .detail-stats { grid-template-columns: 1fr 1fr; }
+    .detail-stats { gap: 5px; }
+    .dstat { padding: 6px 6px; }
+    .detail-stats .dstat-v { font-size: 12px; }
+    .dstat-l { font-size: 8px; letter-spacing: .5px; }
+    .hero { min-height: 160px; padding: 14px 12px; }
+    .hero .tile-value.huge { font-size: 72px; }
   }
 </style>
 </head>
@@ -730,7 +768,9 @@
       <button class="modal-close" onclick="closeDetail()">×</button>
     </div>
     <div class="modal-body">
+      <div class="hero" id="detailHero"></div>
       <div class="detail-stats" id="detailStats"></div>
+      <div class="detail-trend-l" id="detailTrendL">Trend</div>
       <div class="detail-chart" id="detailChart"><div class="chart-tip" id="chartTip"></div></div>
       <button class="btn-link-plain" onclick="openTileSettings(detailName)">⚙ Tile settings</button>
       <div class="field-hint" id="detailHint">Shows up to the last 2 minutes. Hover or drag across the graph to read values.</div>
@@ -2002,7 +2042,7 @@ function tileBodyHTML(st, cfg, now) {
   if (!st.isNum) return `<div class="tile-value text">${escapeHtml(st.value)}</div>`;
   switch (cfg.style) {
     case 'gauge':
-      return `<div class="gauge">${gaugeSVG(st, cfg)}</div><div class="tile-value center" style="font-size:22px">${withUnit(st.value, cfg)}</div>`;
+      return `<div class="gauge">${gaugeSVG(st, cfg)}</div><div class="tile-value center gauge-val">${withUnit(st.value, cfg)}</div>`;
     case 'bar': {
       const r = rangeFor(st, cfg);
       return `<div class="tile-value">${withUnit(st.value, cfg)}</div>
@@ -2195,6 +2235,19 @@ function closeDetail() {
   document.getElementById('detailOverlay').classList.remove('open');
 }
 
+function renderHero(st) {
+  const hero = document.getElementById('detailHero');
+  const cfg = cfgFor(st.name);
+  let body;
+  if (!st.isNum) body = `<div class="tile-value text">${escapeHtml(st.value)}</div>`;
+  else if (cfg.style === 'graph') body = `<div class="tile-value huge">${withUnit(st.value, cfg)}</div>`;  // graph is shown below
+  else body = tileBodyHTML(st, cfg, Date.now());
+  const badge = st.alerting ? `<div class="hero-alert">⚠ ${cfg.alert === 'above' ? 'above' : 'below'} ${escapeHtml(fmt(cfg.alertValue))}</div>` : '';
+  const html = badge + body;
+  if (hero._last !== html) { hero.innerHTML = html; hero._last = html; }
+  hero.classList.toggle('alert', !!st.alerting);
+}
+
 function niceTicks(min, max) {
   const span = max - min;
   const step0 = span / 3;
@@ -2212,15 +2265,20 @@ function renderDetail() {
   const tip = document.getElementById('chartTip');
   const statsEl = document.getElementById('detailStats');
   if (!st) { closeDetail(); return; }
+  renderHero(st);
 
   if (!st.isNum) {
     statsEl.innerHTML = `<div class="dstat" style="grid-column:1/-1"><div class="dstat-l">Latest</div><div class="dstat-v">${escapeHtml(st.value)}</div></div>`;
     box.querySelectorAll('svg').forEach(e => e.remove());
     box.style.display = 'none';
+    statsEl.style.display = 'none';
+    document.getElementById('detailTrendL').style.display = 'none';
     document.getElementById('detailHint').textContent = 'This value is text, so there is no graph.';
     return;
   }
   box.style.display = '';
+  statsEl.style.display = '';
+  document.getElementById('detailTrendL').style.display = '';
   document.getElementById('detailHint').textContent = 'Shows up to the last 2 minutes. Hover or drag across the graph to read values.';
 
   const now = Date.now();
