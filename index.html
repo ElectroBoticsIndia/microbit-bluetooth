@@ -907,9 +907,14 @@ let rxCharacteristic = null;
 let msgCount = 0;
 let rxBuffer = '';
 
+let busy = false;
 async function toggleConnection() {
-  if (device && device.gatt.connected) disconnect();
-  else await connect();
+  if (busy) return;
+  busy = true;
+  try {
+    if (device && device.gatt.connected) await disconnect();
+    else await connect();
+  } finally { busy = false; }
 }
 
 async function connect() {
@@ -917,6 +922,7 @@ async function connect() {
     updateStatus('scanning');
     logSystem('Scanning for micro:bit devices…');
 
+    if (device) await disconnect(true);   // make sure an old link is fully closed first
     device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: 'BBC micro:bit' }],
       optionalServices: MICROBIT_SERVICES
@@ -936,8 +942,7 @@ async function connect() {
       logSystem('UART service not found on this device.');
       logSystem('⚠ Your micro:bit program must use "bluetooth uart service" in on start.');
       logSystem('Also set Project Settings → No Pairing Required.');
-      updateStatus('disconnected');
-      device.gatt.disconnect();
+      await disconnect(true);
       return;
     }
 
@@ -946,8 +951,7 @@ async function connect() {
       characteristics = await service.getCharacteristics();
     } catch (e) {
       logSystem('Could not enumerate characteristics: ' + e.message);
-      updateStatus('disconnected');
-      device.gatt.disconnect();
+      await disconnect(true);
       return;
     }
 
@@ -985,8 +989,7 @@ async function connect() {
 
     if (!writeChar && !notifyChar) {
       logSystem('⚠ No usable characteristics.');
-      updateStatus('disconnected');
-      device.gatt.disconnect();
+      await disconnect(true);
       return;
     }
 
@@ -999,15 +1002,39 @@ async function connect() {
     else if (err.name === 'SecurityError') logSystem('Bluetooth permission denied. Please allow Bluetooth access.');
     else if (err.name === 'NetworkError') logSystem('Connection failed. Make sure the micro:bit is powered on and in range.');
     else { logSystem('Error: ' + err.message); console.error(err); }
+    if (device) await disconnect(true);
     updateStatus('disconnected');
   }
 }
 
-function disconnect() {
-  if (device && device.gatt.connected) device.gatt.disconnect();
+// Chrome keeps the radio link to the micro:bit open after gatt.disconnect() if
+// notifications are still on, and sometimes keeps it anyway. So we switch
+// notifications off, disconnect, and then "forget" the device, which makes
+// Chrome really drop the link. (The next Connect shows the picker as usual.)
+async function disconnect(quiet) {
+  const d = device;
+  if (!d) return;
+  if (!quiet) logSystem('Disconnecting…');
+  if (rxCharacteristic) {
+    rxCharacteristic.removeEventListener('characteristicvaluechanged', onRxData);
+    try { if (d.gatt.connected) await rxCharacteristic.stopNotifications(); } catch (e) {}
+  }
+  try { if (d.gatt.connected) d.gatt.disconnect(); } catch (e) {}
+  try { if (typeof d.forget === 'function') await d.forget(); } catch (e) {}
+  d.removeEventListener('gattserverdisconnected', onDisconnected);
+  if (device === d) {
+    device = null;
+    onDisconnected();
+  }
 }
 
+// Close the link if the page is closed or refreshed
+window.addEventListener('pagehide', () => {
+  try { if (device && device.gatt.connected) device.gatt.disconnect(); } catch (e) {}
+});
+
 function onDisconnected() {
+  if (!server && !txCharacteristic && !rxCharacteristic && document.getElementById('statusLabel').textContent === 'Disconnected') return;
   logSystem('Device disconnected.');
   updateStatus('disconnected');
   setControlsEnabled(false);
@@ -2360,7 +2387,32 @@ if (!navigator.bluetooth) {
   warning.className = 'info-banner';
   warning.style.borderColor = 'var(--red)';
   warning.style.background = 'rgba(215,98,65,0.08)';
-  warning.innerHTML = `<div style="color:var(--red);"><strong>Web Bluetooth is not supported</strong> in this browser. Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on desktop, or Chrome on Android.</div>`;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);   // iPadOS reports as a Mac
+  if (isIOS) {
+    warning.innerHTML = `<div style="color:var(--red);line-height:1.6;">
+      <strong>iPhone and iPad browsers can't use Bluetooth.</strong> Open this page in the free <strong>Bluefy</strong> app instead:
+      <ol style="margin:6px 0 10px 18px;padding:0;color:var(--text);">
+        <li>Install <strong>Bluefy</strong> from the App Store.</li>
+        <li>Copy this page's link.</li>
+        <li>Open Bluefy, paste the link and tap Connect.</li>
+      </ol>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a class="btn-head primary" style="text-decoration:none;" href="https://apps.apple.com/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener">Get Bluefy</a>
+        <button class="btn-head" id="copyPageLink">Copy link</button>
+      </div></div>`;
+    warning.querySelector('#copyPageLink').addEventListener('click', async (e) => {
+      const url = location.href.split('#')[0];
+      let ok = false;
+      try { await navigator.clipboard.writeText(url); ok = true; } catch (err) {
+        const ta = document.createElement('textarea'); ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select(); try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove();
+      }
+      e.target.textContent = ok ? 'Copied ✓' : url;
+    });
+  } else {
+    warning.innerHTML = `<div style="color:var(--red);"><strong>Web Bluetooth is not supported</strong> in this browser. Please use <strong>Google Chrome</strong> or <strong>Microsoft Edge</strong> on desktop, or Chrome on Android. On iPhone or iPad, use the free <strong>Bluefy</strong> app.</div>`;
+  }
   const statusBar = document.getElementById('statusBar');
   statusBar.parentNode.insertBefore(warning, statusBar);
   document.getElementById('connectBtn').disabled = true;
