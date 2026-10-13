@@ -283,6 +283,31 @@
     padding: 2px 4px; border-radius: 6px; line-height: 1;
   }
   .tile-gear:hover { color: var(--text); background: var(--surface); }
+  .tile-pin {
+    background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 2px 3px;
+    border-radius: 6px; line-height: 0; opacity: .7;
+  }
+  .tile-pin svg { width: 15px; height: 15px; }
+  .tile-pin:hover { opacity: 1; color: var(--text); background: var(--surface); }
+  .tile-pin.on { color: var(--amber); opacity: 1; }
+
+  /* Pinned live values on the Controller tab */
+  .pin-strip {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px;
+    padding: 18px 18px 0;
+  }
+  .pin-strip .tile { min-height: 140px; }
+  .pin-strip .tile-meta { display: none; }
+  .tile-wait { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); text-align: center; }
+  .check-row { display: flex !important; align-items: center; gap: 10px; cursor: pointer; text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; color: var(--text) !important; }
+  .check-row input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0;
+    background: #061f22; border: 1px solid var(--amber); color: var(--text); border-radius: 10px;
+    padding: 10px 16px; font-family: var(--font-mono); font-size: 12px; z-index: 300;
+    transition: opacity .2s, transform .2s; pointer-events: none; max-width: calc(100% - 32px); text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
   .tile-body { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
   .tile-value {
     font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--text);
@@ -298,9 +323,9 @@
   .gauge svg, .compass svg { width: 100%; display: block; }
   .gauge svg { max-height: 78px; }
   .gauge-val { font-size: 22px; }
-  .compass { display: flex; align-items: center; gap: 10px; }
-  .compass svg { width: 84px; height: 84px; flex-shrink: 0; }
-  .compass .tile-value { font-size: 24px; white-space: nowrap; }
+  .compass { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .compass svg { width: 78px; height: 78px; flex-shrink: 0; }
+  .compass .tile-value { font-size: 22px; white-space: nowrap; text-align: center; }
   .compass-dir { font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); font-weight: 700; }
   .bar-track { height: 18px; background: var(--surface); border-radius: 9px; overflow: hidden; margin-top: 10px; border: 1px solid var(--border); }
   .bar-fill { height: 100%; background: #19b8cc; border-radius: 8px; transition: width .25s ease-out; }
@@ -590,6 +615,8 @@
     .status-bar { flex-wrap: wrap; gap: 10px; }
     .device-name { order: 3; width: 100%; text-align: center; }
     .board-wrap { padding: 12px; }
+    .pin-strip { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 12px 0; }
+    .pin-strip .tile { min-height: 130px; }
     .board { gap: 8px; }
     .slot { border-radius: 12px; }
     .cbtn { font-size: 10.5px; border-radius: 12px; padding: 5px; gap: 3px; }
@@ -670,6 +697,7 @@
     </div>
 
     <div id="viewController">
+      <div class="pin-strip" id="pinStrip" style="display:none;"></div>
       <div class="board-wrap">
         <div class="board" id="board"></div>
         <div class="empty-state" id="emptyState">
@@ -688,7 +716,7 @@
         <code>bluetooth uart write value "temp" = temperature</code><br>
         and each value gets its own tile here.
       </div>
-      <div class="grid-hint" id="liveHint" style="display:none;">Tap a tile for a bigger graph. Use ⚙ to change how a tile looks, add a unit or set an alert.</div>
+      <div class="grid-hint" id="liveHint" style="display:none;">Tap a tile for a bigger view. Use ⚙ to change how a tile looks, add a unit or set an alert. Tap the pin to show a tile on the Controller tab too.</div>
     </div>
   </div>
 
@@ -815,6 +843,10 @@
           <input type="number" id="tsAlertVal" placeholder="Value" step="any">
         </div>
         <div class="field-hint">The tile turns red and the phone vibrates when the value crosses this level. Example: soil moisture below 300 means water the plant.</div>
+      </div>
+      <div class="field">
+        <label class="check-row"><input type="checkbox" id="tsPinned"> Show on the Controller tab</label>
+        <div class="field-hint">See this value next to your buttons. Up to 4 values can be shown there.</div>
       </div>
       <div class="form-error" id="tsError"></div>
     </div>
@@ -1841,8 +1873,8 @@ function switchTab(name) {
     const dot = document.getElementById('liveDot');
     dot.classList.remove('show', 'alert');
     if (editMode) toggleEditMode();
-    renderLive();
   }
+  renderLive();
   try { localStorage.setItem('eb_tab', name); } catch (e) {}
 }
 
@@ -1878,6 +1910,42 @@ const STYLES = [
 let tileCfg = {};
 try { tileCfg = JSON.parse(localStorage.getItem(TILE_KEY) || '{}') || {}; } catch (e) { tileCfg = {}; }
 function saveTileCfg() { try { localStorage.setItem(TILE_KEY, JSON.stringify(tileCfg)); } catch (e) {} }
+
+// ─── Pinned values (shown on the Controller tab too) ───
+const PIN_KEY = 'eb_pinned_v1';
+const MAX_PINS = 4;
+let pinned = [];
+try { pinned = (JSON.parse(localStorage.getItem(PIN_KEY) || '[]') || []).filter(n => typeof n === 'string').slice(0, MAX_PINS); } catch (e) { pinned = []; }
+function savePins() { try { localStorage.setItem(PIN_KEY, JSON.stringify(pinned)); } catch (e) {} }
+function isPinned(name) { return pinned.includes(name); }
+
+// Returns false (and tells the student) if the limit is reached
+function setPinned(name, on) {
+  if (on === isPinned(name)) return true;
+  if (on) {
+    if (pinned.length >= MAX_PINS) {
+      showToast('You can show up to ' + MAX_PINS + ' values on the Controller tab. Unpin one first.');
+      return false;
+    }
+    pinned.push(name);
+    showToast('📌 ' + name + ' is now on the Controller tab');
+  } else {
+    pinned = pinned.filter(n => n !== name);
+  }
+  savePins();
+  scheduleLive();
+  return true;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+const PIN_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 2.5l6 6-2.3.8-3.6 3.6.4 4.6-1.6 1.6-4.2-4.2L5 20.1 3.9 19l5.2-5.2L4.9 9.6l1.6-1.6 4.6.4 3.6-3.6z"/></svg>';
 
 // Pick a sensible starting style from the value's name
 function guessCfg(name) {
@@ -2089,47 +2157,79 @@ function tileBodyHTML(st, cfg, now) {
   }
 }
 
+function makeTile(name) {
+  const tile = document.createElement('div');
+  tile.className = 'tile';
+  tile.dataset.name = name;
+  tile.innerHTML = '<div class="tile-top"><span class="tile-name"></span><span class="tile-alert"></span><button class="tile-pin" aria-label="Show on Controller tab">' + PIN_SVG + '</button><button class="tile-gear" title="Tile settings" aria-label="Tile settings">⚙</button></div><div class="tile-body"></div><div class="tile-meta"><span class="m-range"></span><span class="m-ago"></span></div>';
+  tile.querySelector('.tile-name').textContent = name;
+  tile.addEventListener('click', () => { if (streams.has(name)) openDetail(name); });
+  tile.querySelector('.tile-gear').addEventListener('click', (e) => { e.stopPropagation(); openTileSettings(name); });
+  tile.querySelector('.tile-pin').addEventListener('click', (e) => { e.stopPropagation(); setPinned(name, !isPinned(name)); });
+  return tile;
+}
+
+function updateTile(tile, st, name, now) {
+  const cfg = cfgFor(name);
+  const pin = tile.querySelector('.tile-pin');
+  const on = isPinned(name);
+  pin.classList.toggle('on', on);
+  pin.title = on ? 'Remove from Controller tab' : 'Show on Controller tab';
+  if (!st) {   // pinned, but nothing received yet
+    tile.classList.add('stale');
+    tile.classList.remove('fresh', 'alert');
+    tile.querySelector('.tile-alert').textContent = '';
+    const body = tile.querySelector('.tile-body');
+    if (!body.querySelector('.tile-wait')) body.innerHTML = '<div class="tile-wait">waiting for data…</div>';
+    return;
+  }
+  const age = now - st.last;
+  tile.classList.toggle('stale', age > STALE_MS);
+  tile.classList.toggle('fresh', age < 600 && !st.alerting);
+  tile.classList.toggle('alert', !!st.alerting);
+  tile.querySelector('.tile-alert').textContent = st.alerting ? '⚠ ' + (cfg.alert === 'above' ? 'above ' : 'below ') + fmt(cfg.alertValue) : '';
+  tile.querySelector('.tile-body').innerHTML = tileBodyHTML(st, cfg, now);
+  let meta = '';
+  if (st.isNum && cfg.style === 'graph') {
+    const recent = st.points.filter(p => p.t >= now - SPARK_MS);
+    if (recent.length > 1) {
+      const vs = recent.map(p => p.v);
+      meta = 'min ' + fmt(Math.min(...vs)) + ' · max ' + fmt(Math.max(...vs));
+    }
+  }
+  tile.querySelector('.m-range').textContent = meta;
+  tile.querySelector('.m-ago').textContent = ago(age);
+}
+
+function renderPinned(now) {
+  const strip = document.getElementById('pinStrip');
+  strip.style.display = pinned.length ? '' : 'none';
+  // remove cards that were unpinned
+  strip.querySelectorAll('.tile').forEach(t => { if (!isPinned(t.dataset.name)) t.remove(); });
+  pinned.forEach((name, i) => {
+    let tile = strip.querySelector(`.tile[data-name="${CSS.escape(name)}"]`);
+    if (!tile) tile = makeTile(name);
+    if (strip.children[i] !== tile) strip.insertBefore(tile, strip.children[i] || null);
+    updateTile(tile, streams.get(name), name, now);
+  });
+}
+
 function renderLive() {
   const has = streams.size > 0;
   document.getElementById('liveCount').textContent = streams.size + (streams.size === 1 ? ' value' : ' values');
   document.getElementById('liveClear').style.display = has ? '' : 'none';
-  if (currentTab !== 'live') return;   // draw tiles only when the tab is showing
+  const now = Date.now();
+  if (currentTab !== 'live') { renderPinned(now); return; }   // draw only what is on screen
 
   const grid = document.getElementById('liveGrid');
   grid.style.display = has ? '' : 'none';
   document.getElementById('liveEmpty').style.display = has ? 'none' : '';
   document.getElementById('liveHint').style.display = has ? '' : 'none';
-  const now = Date.now();
 
   streams.forEach(st => {
-    const cfg = cfgFor(st.name);
     let tile = grid.querySelector(`.tile[data-name="${CSS.escape(st.name)}"]`);
-    if (!tile) {
-      tile = document.createElement('div');
-      tile.className = 'tile';
-      tile.dataset.name = st.name;
-      tile.innerHTML = '<div class="tile-top"><span class="tile-name"></span><span class="tile-alert"></span><button class="tile-gear" title="Tile settings" aria-label="Tile settings">⚙</button></div><div class="tile-body"></div><div class="tile-meta"><span class="m-range"></span><span class="m-ago"></span></div>';
-      tile.querySelector('.tile-name').textContent = st.name;
-      tile.addEventListener('click', () => openDetail(st.name));
-      tile.querySelector('.tile-gear').addEventListener('click', (e) => { e.stopPropagation(); openTileSettings(st.name); });
-      grid.appendChild(tile);
-    }
-    const age = now - st.last;
-    tile.classList.toggle('stale', age > STALE_MS);
-    tile.classList.toggle('fresh', age < 600 && !st.alerting);
-    tile.classList.toggle('alert', !!st.alerting);
-    tile.querySelector('.tile-alert').textContent = st.alerting ? '⚠ ' + (cfg.alert === 'above' ? 'above ' : 'below ') + fmt(cfg.alertValue) : '';
-    tile.querySelector('.tile-body').innerHTML = tileBodyHTML(st, cfg, now);
-    let meta = '';
-    if (st.isNum && cfg.style === 'graph') {
-      const recent = st.points.filter(p => p.t >= now - SPARK_MS);
-      if (recent.length > 1) {
-        const vs = recent.map(p => p.v);
-        meta = 'min ' + fmt(Math.min(...vs)) + ' · max ' + fmt(Math.max(...vs));
-      }
-    }
-    tile.querySelector('.m-range').textContent = meta;
-    tile.querySelector('.m-ago').textContent = ago(age);
+    if (!tile) { tile = makeTile(st.name); grid.appendChild(tile); }
+    updateTile(tile, st, st.name, now);
   });
 }
 
@@ -2200,6 +2300,7 @@ function openTileSettings(name) {
   document.getElementById('tsAlert').value = cfg.alert || 'none';
   document.getElementById('tsAlertVal').value = cfg.alertValue === null ? '' : cfg.alertValue;
   document.getElementById('tsAlertVal').disabled = (cfg.alert || 'none') === 'none';
+  document.getElementById('tsPinned').checked = isPinned(name);
   document.getElementById('tsError').classList.remove('show');
   refreshTileSettings();
   document.getElementById('tileOverlay').classList.add('open');
@@ -2231,6 +2332,13 @@ function saveTileSettings() {
     err.classList.add('show');
     return;
   }
+  const wantPin = document.getElementById('tsPinned').checked;
+  if (wantPin && !isPinned(tsName) && pinned.length >= MAX_PINS) {
+    err.textContent = 'Up to ' + MAX_PINS + ' values can be shown on the Controller tab. Unpin one first.';
+    err.classList.add('show');
+    return;
+  }
+  setPinned(tsName, wantPin);
   tileCfg[tsName] = { style: tsStyle, unit: document.getElementById('tsUnit').value.trim(), min, max, alert, alertValue, auto: false };
   saveTileCfg();
   const st = streams.get(tsName);
@@ -2381,6 +2489,7 @@ buildTileSettings();
 try { if (localStorage.getItem('eb_tab') === 'live') switchTab('live'); } catch (e) {}
 loadButtons();
 renderButtons();
+renderLive();   // draws pinned values (waiting) on the Controller tab
 
 if (!navigator.bluetooth) {
   const warning = document.createElement('div');
@@ -2419,5 +2528,6 @@ if (!navigator.bluetooth) {
   document.getElementById('connectBtn').style.opacity = '0.3';
 }
 </script>
+<div class="toast" id="toast"></div>
 </body>
 </html>
